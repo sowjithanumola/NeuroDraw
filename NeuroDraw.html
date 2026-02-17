@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NeuroDraw - AI Air Canvas</title>
+    <!-- Favicon / Tab Logo -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2a10 10 0 1 0 10 10H12V2Z'/><path d='M12 12L2.5 12'/><path d='M12 12l6.7-6.7'/></svg>">
+    
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
@@ -55,6 +58,10 @@
         .mode-indicator {
             transition: all 0.3s ease;
         }
+
+        .logo-glow {
+            filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
+        }
     </style>
 </head>
 <body>
@@ -65,6 +72,14 @@
 
         <!-- Initial Start Screen -->
         <div id="start-overlay" class="z-50 flex flex-col items-center text-center px-4">
+            <div class="mb-6 logo-glow">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
+                    <path d="M12 2a10 10 0 1 0 10 10H12V2Z"/>
+                    <path d="M12 12L2.5 12"/>
+                    <path d="M12 12l6.7-6.7"/>
+                    <circle cx="12" cy="12" r="3" fill="currentColor" fill-opacity="0.2"/>
+                </svg>
+            </div>
             <h1 class="text-6xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
                 NeuroDraw
             </h1>
@@ -78,21 +93,33 @@
         <div id="ui-overlay" class="hidden fixed inset-0 pointer-events-none z-40 flex flex-col justify-between p-6">
             <!-- Top Controls -->
             <div class="flex justify-between items-start pointer-events-auto">
-                <div class="glass-panel p-4 rounded-2xl flex gap-4 items-center shadow-xl">
-                    <div class="flex flex-col gap-1">
-                        <label class="text-xs font-semibold uppercase text-gray-400">Color</label>
-                        <div class="flex gap-2" id="color-picker">
-                            <button onclick="setColor('#3b82f6')" class="w-8 h-8 rounded-full bg-blue-500 border-2 border-white hover:scale-110 transition"></button>
-                            <button onclick="setColor('#ef4444')" class="w-8 h-8 rounded-full bg-red-500 border-2 border-transparent hover:scale-110 transition"></button>
-                            <button onclick="setColor('#22c55e')" class="w-8 h-8 rounded-full bg-green-500 border-2 border-transparent hover:scale-110 transition"></button>
-                            <button onclick="setColor('#eab308')" class="w-8 h-8 rounded-full bg-yellow-500 border-2 border-transparent hover:scale-110 transition"></button>
-                            <button onclick="setColor('#ffffff')" class="w-8 h-8 rounded-full bg-white border-2 border-transparent hover:scale-110 transition"></button>
-                        </div>
+                <div class="flex items-center gap-4">
+                    <!-- Top Left Logo -->
+                    <div class="glass-panel p-3 rounded-2xl flex items-center gap-3 shadow-xl border-blue-500/20">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 logo-glow">
+                            <path d="M12 2a10 10 0 1 0 10 10H12V2Z"/>
+                            <path d="M12 12L2.5 12"/>
+                            <path d="M12 12l6.7-6.7"/>
+                        </svg>
+                        <span class="font-black tracking-tighter text-lg bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-300">NEURODRAW</span>
                     </div>
-                    <div class="w-px h-10 bg-gray-700 mx-2"></div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-xs font-semibold uppercase text-gray-400">Brush Size</label>
-                        <input type="range" id="brush-size" min="2" max="40" value="8" class="w-24 accent-blue-500">
+
+                    <div class="glass-panel p-4 rounded-2xl flex gap-4 items-center shadow-xl">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-semibold uppercase text-gray-400">Color</label>
+                            <div class="flex gap-2" id="color-picker">
+                                <button onclick="setColor('#3b82f6')" class="w-8 h-8 rounded-full bg-blue-500 border-2 border-white hover:scale-110 transition"></button>
+                                <button onclick="setColor('#ef4444')" class="w-8 h-8 rounded-full bg-red-500 border-2 border-transparent hover:scale-110 transition"></button>
+                                <button onclick="setColor('#22c55e')" class="w-8 h-8 rounded-full bg-green-500 border-2 border-transparent hover:scale-110 transition"></button>
+                                <button onclick="setColor('#eab308')" class="w-8 h-8 rounded-full bg-yellow-500 border-2 border-transparent hover:scale-110 transition"></button>
+                                <button onclick="setColor('#ffffff')" class="w-8 h-8 rounded-full bg-white border-2 border-transparent hover:scale-110 transition"></button>
+                            </div>
+                        </div>
+                        <div class="w-px h-10 bg-gray-700 mx-2"></div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-xs font-semibold uppercase text-gray-400">Brush Size</label>
+                            <input type="range" id="brush-size" min="2" max="40" value="8" class="w-24 accent-blue-500">
+                        </div>
                     </div>
                 </div>
 
@@ -223,15 +250,16 @@
                 return;
             }
 
-            // Draw Blue Tracking Skeleton on Preview
+            // Visual Tracking: Lines with Blue Dots
             for (const landmarks of results.multiHandLandmarks) {
-                // Draw Connections
-                drawConnectors(tCtx, landmarks, HAND_CONNECTIONS, {color: '#3b82f6', lineWidth: 3});
-                // Draw Blue Dots (Landmarks)
+                // Draw Blue Connecting Lines
+                drawConnectors(tCtx, landmarks, HAND_CONNECTIONS, {color: '#3b82f6', lineWidth: 4});
+                // Draw Blue Glow Dots
                 drawLandmarks(tCtx, landmarks, {
                     color: '#60a5fa', 
-                    lineWidth: 1, 
-                    radius: (data) => data.index === 8 ? 6 : 3 
+                    fillColor: '#3b82f6',
+                    lineWidth: 2, 
+                    radius: (data) => data.index === 8 ? 7 : 4 
                 });
             }
 
