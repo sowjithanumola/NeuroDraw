@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroDraw - AI Air Canvas</title>
+    <!-- Favicon generated via SVG to appear in the browser tab -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%233b82f6'/><text x='50%' y='50%' dominant-baseline='central' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='60'>N</text></svg>">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow: hidden;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+        }
+        #canvas-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            touch-action: none;
+            transform: scaleX(-1);
+        }
+        #video-preview-container {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .active-hand { background-color: #22c55e; box-shadow: 0 0 10px #22c55e; }
+        .no-hand { background-color: #ef4444; }
+        
+        #main-video, #tracking-canvas {
+            transform: scaleX(-1);
+        }
+        
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo-gradient {
+            background: linear-gradient(to right, #60a5fa, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 900;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container" class="flex flex-col items-center justify-center">
+        <!-- Main Drawing Canvas -->
+        <canvas id="canvas-layer"></canvas>
+
+        <!-- Initial Start Screen with Logo -->
+        <div id="start-overlay" class="z-50 flex flex-col items-center text-center px-4">
+            <div class="mb-4 flex items-center gap-3">
+                 <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-2xl">
+                    <span class="text-white text-4xl font-black">N</span>
+                 </div>
+                 <h1 class="text-7xl logo-gradient">NeuroDraw</h1>
+            </div>
+            <p class="text-blue-200/60 mb-8 font-medium tracking-[0.3em] uppercase text-sm italic">AI-Powered Air Studio</p>
+            <button id="start-btn" class="px-10 py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-bold text-xl transition-all transform hover:scale-105 shadow-2xl">
+                I'm Ready to Start
+            </button>
+        </div>
+
+        <!-- Controls & Instructions -->
+        <div id="ui-overlay" class="hidden fixed inset-0 pointer-events-none z-40 flex flex-col justify-between p-6">
+            <!-- Top Controls with Integrated Logo -->
+            <div class="flex justify-between items-start pointer-events-auto">
+                <div class="flex gap-4 items-center">
+                    <!-- Brand Logo in UI Bar -->
+                    <div class="glass-panel px-5 py-3 rounded-2xl flex items-center gap-3 shadow-xl border-blue-500/20">
+                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <span class="text-white text-lg font-black">N</span>
+                        </div>
+                        <div class="flex flex-col leading-none">
+                            <span class="logo-gradient text-lg tracking-tight">NeuroDraw</span>
+                            <span class="text-[9px] uppercase tracking-[0.2em] text-blue-400/70 font-bold">Studio v2.5</span>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-3 rounded-2xl flex gap-6 items-center shadow-xl">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Pen Color</label>
+                            <div class="flex gap-2" id="color-picker">
+                                <button onclick="setColor('#3b82f6')" class="w-7 h-7 rounded-full bg-blue-500 border-2 border-white transition-transform hover:scale-110"></button>
+                                <button onclick="setColor('#ef4444')" class="w-7 h-7 rounded-full bg-red-500 border-2 border-transparent transition-transform hover:scale-110"></button>
+                                <button onclick="setColor('#22c55e')" class="w-7 h-7 rounded-full bg-green-500 border-2 border-transparent transition-transform hover:scale-110"></button>
+                                <button onclick="setColor('#ffffff')" class="w-7 h-7 rounded-full bg-white border-2 border-transparent transition-transform hover:scale-110"></button>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Size</label>
+                            <input type="range" id="brush-size" min="2" max="50" value="8" class="w-20 accent-blue-500 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button id="clear-btn" class="pointer-events-auto px-6 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl font-medium transition shadow-lg text-sm">
+                        Clear
+                    </button>
+                    <button id="save-btn" class="pointer-events-auto px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition shadow-lg text-sm">
+                        Export PNG
+                    </button>
+                </div>
+            </div>
+
+            <!-- Gesture Guide -->
+            <div id="guide-panel" class="self-center glass-panel p-6 rounded-3xl max-w-sm text-center shadow-2xl transition-all border-blue-500/30 border">
+                <h2 class="text-2xl font-bold mb-4 text-blue-400">Magic Gestures</h2>
+                <div class="grid grid-cols-2 gap-4 text-sm mb-6">
+                    <div class="bg-slate-800/50 p-4 rounded-xl border border-white/5">
+                        <span class="text-3xl block mb-2">☝️</span>
+                        <p class="font-bold text-blue-300 uppercase">Draw</p>
+                        <p class="text-gray-400 text-[10px] mt-1">Index Finger Only</p>
+                    </div>
+                    <div class="bg-slate-800/50 p-4 rounded-xl border border-white/5">
+                        <span class="text-3xl block mb-2">✌️</span>
+                        <p class="font-bold text-pink-400 uppercase">Erase</p>
+                        <p class="text-gray-400 text-[10px] mt-1">Index + Middle</p>
+                    </div>
+                </div>
+                <button id="close-guide" class="w-full py-3 bg-blue-600/20 border border-blue-500/50 hover:bg-blue-600/40 rounded-xl text-blue-300 font-bold transition-colors pointer-events-auto uppercase tracking-widest text-xs">
+                    Start Creating
+                </button>
+            </div>
+
+            <!-- Bottom Status UI -->
+            <div class="flex justify-between items-end">
+                <div class="glass-panel px-4 py-2 rounded-full flex items-center text-sm shadow-lg">
+                    <span id="status-indicator" class="status-dot no-hand"></span>
+                    <span id="status-text" class="text-xs uppercase font-bold text-gray-400 tracking-tighter">Initializing AI...</span>
+                </div>
+                
+                <div id="active-mode" class="glass-panel px-6 py-2 rounded-full font-black uppercase tracking-widest text-blue-400 shadow-lg border border-blue-500/20 text-[10px]">
+                    STATUS: WAITING
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Window -->
+        <div id="video-preview-container" class="fixed bottom-4 right-4 z-30 w-48 h-36 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-black">
+            <video id="main-video" class="w-full h-full object-cover" playsinline></video>
+            <canvas id="tracking-canvas" class="absolute inset-0 w-full h-full"></canvas>
+            <div id="loading-spinner" class="absolute inset-0 bg-slate-900 flex items-center justify-center">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const videoElement = document.getElementById('main-video');
+        const canvasLayer = document.getElementById('canvas-layer');
+        const trackingCanvas = document.getElementById('tracking-canvas');
+        const tCtx = trackingCanvas.getContext('2d');
+        const ctx = canvasLayer.getContext('2d');
+        
+        const startBtn = document.getElementById('start-btn');
+        const startOverlay = document.getElementById('start-overlay');
+        const uiOverlay = document.getElementById('ui-overlay');
+        const previewContainer = document.getElementById('video-preview-container');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const modeIndicator = document.getElementById('active-mode');
+        const brushSizeInput = document.getElementById('brush-size');
+        const guidePanel = document.getElementById('guide-panel');
+
+        let isAppStarted = false;
+        let isDrawing = false;
+        let lastX = 0, lastY = 0;
+        let currentColor = '#3b82f6';
+
+        function resizeCanvas() {
+            canvasLayer.width = window.innerWidth;
+            canvasLayer.height = window.innerHeight;
+            if (videoElement.videoWidth) {
+                trackingCanvas.width = videoElement.videoWidth;
+                trackingCanvas.height = videoElement.videoHeight;
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        videoElement.addEventListener('loadedmetadata', resizeCanvas);
+
+        window.setColor = function(color) {
+            currentColor = color;
+            const buttons = document.querySelectorAll('#color-picker button');
+            buttons.forEach(b => {
+                const bg = window.getComputedStyle(b).backgroundColor;
+                const temp = document.createElement('div');
+                temp.style.color = color;
+                document.body.appendChild(temp);
+                const targetRgb = window.getComputedStyle(temp).color;
+                document.body.removeChild(temp);
+                b.style.borderColor = (bg === targetRgb) ? 'white' : 'transparent';
+            });
+        };
+
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
+        });
+
+        hands.onResults((results) => {
+            document.getElementById('loading-spinner').style.display = 'none';
+            tCtx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
+
+            if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+                statusIndicator.className = 'status-dot no-hand';
+                statusText.innerText = 'NeuroDraw: Searching...';
+                modeIndicator.innerText = 'Status: Waiting';
+                isDrawing = false;
+                return;
+            }
+
+            for (const landmarks of results.multiHandLandmarks) {
+                drawConnectors(tCtx, landmarks, HAND_CONNECTIONS, {color: '#3b82f6', lineWidth: 2});
+                drawLandmarks(tCtx, landmarks, {
+                    color: '#60a5fa', 
+                    lineWidth: 1, 
+                    radius: (data) => data.index === 8 ? 5 : 2 
+                });
+            }
+
+            statusIndicator.className = 'status-dot active-hand';
+            statusText.innerText = 'NeuroDraw: Linked';
+
+            if (!isAppStarted) return;
+
+            const landmarks = results.multiHandLandmarks[0];
+            const indexTip = landmarks[8];
+            const indexKnuckle = landmarks[6];
+            const middleTip = landmarks[12];
+            const middleKnuckle = landmarks[10];
+
+            // Mirror X coordinate for intuitive drawing
+            const x = (1 - indexTip.x) * canvasLayer.width;
+            const y = indexTip.y * canvasLayer.height;
+
+            const isIndexUp = indexTip.y < indexKnuckle.y;
+            const isMiddleUp = middleTip.y < middleKnuckle.y;
+
+            if (isIndexUp && isMiddleUp) {
+                modeIndicator.innerText = 'Mode: Eraser';
+                if (isDrawing) {
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.beginPath();
+                    ctx.moveTo(lastX, lastY);
+                    ctx.lineTo(x, y);
+                    ctx.lineWidth = brushSizeInput.value * 2.5;
+                    ctx.lineCap = 'round';
+                    ctx.stroke();
+                }
+                isDrawing = true;
+            } else if (isIndexUp) {
+                modeIndicator.innerText = 'Mode: Drawing';
+                if (isDrawing) {
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.beginPath();
+                    ctx.moveTo(lastX, lastY);
+                    ctx.lineTo(x, y);
+                    ctx.strokeStyle = currentColor;
+                    ctx.lineWidth = brushSizeInput.value;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.stroke();
+                }
+                isDrawing = true;
+            } else {
+                modeIndicator.innerText = 'Mode: Paused';
+                isDrawing = false;
+            }
+
+            lastX = x; lastY = y;
+        });
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({ image: videoElement });
+            },
+            width: 640,
+            height: 480
+        });
+
+        startBtn.addEventListener('click', () => {
+            isAppStarted = true;
+            startOverlay.style.display = 'none';
+            uiOverlay.classList.remove('hidden');
+            previewContainer.classList.add('md:w-64', 'md:h-48');
+            resizeCanvas();
+        });
+
+        document.getElementById('close-guide').addEventListener('click', () => {
+            guidePanel.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => guidePanel.style.display = 'none', 300);
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvasLayer.width, canvasLayer.height);
+        });
+
+        document.getElementById('save-btn').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = `NeuroDraw-Art-${Date.now()}.png`;
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvasLayer.width;
+            tempCanvas.height = canvasLayer.height;
+            const saveCtx = tempCanvas.getContext('2d');
+            saveCtx.fillStyle = '#0f172a';
+            saveCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            // Flip back for saving if needed, but here we draw mirrored
+            saveCtx.drawImage(canvasLayer, 0, 0);
+            link.href = tempCanvas.toDataURL('image/png');
+            link.click();
+        });
+
+        window.onload = () => {
+            camera.start();
+        };
+    </script>
+</body>
+</html>
